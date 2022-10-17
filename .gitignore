@@ -1,0 +1,16 @@
+debug/
+target/
+
+Cargo.lock
+
+**/*.rs.bk
+
+*.pdb
+
+*.so
+*.dylib
+
+*.test
+*.out
+
+go.work
