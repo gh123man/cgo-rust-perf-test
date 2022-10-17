@@ -10,20 +10,28 @@ package main
 import "C"
 import (
 	"bufio"
+	"flag"
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 	"unsafe"
 )
 
 func main() {
 
+	rust := flag.Bool("rust", false, "use rust")
+	flag.Parse()
+
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
 		text, _ := reader.ReadString('\n')
-		// fmt.Print(processString(text))
-		fmt.Print(processStringGo(text))
+		if *rust {
+			fmt.Print(processStringRs(text))
+		} else {
+			fmt.Print(processStringGo(text))
+		}
 	}
 }
 
@@ -40,4 +48,18 @@ var r = regexp.MustCompile(`\b\w{4}\b`)
 
 func processStringGo(str string) string {
 	return r.ReplaceAllLiteralString(str, "gogo")
+}
+
+func simpleStringRs(str string) string {
+	cs := C.CString(str)
+	b := C.passthrough(cs)
+	s := C.GoString(b)
+	defer C.free(unsafe.Pointer(cs))
+	defer C.free(unsafe.Pointer(b))
+	return s
+}
+
+// Copy a string
+func simpleStringGo(str string) string {
+	return strings.Clone(str)
 }

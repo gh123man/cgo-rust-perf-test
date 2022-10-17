@@ -1,4 +1,3 @@
 
-void callme(void);
-
 char* transform(char* str);
+char* passthrough(char* str);
