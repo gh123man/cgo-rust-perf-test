@@ -1,4 +1,16 @@
 
+## Prerequisites 
+
+- rust toolchain
+- go toolchain 
+
+That's it to run the benchmarks, just run `cargo build` first. 
+
+To run the test scripts
+
+- either be on an M1 mac and use the `flog` binary in the repo, [or build this first](https://github.com/DataDog/flog)
+- `brew install pv` (pipe viewer)
+
 
 ## Benchmark results
 
