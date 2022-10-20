@@ -47,7 +47,7 @@ func processStringRs(str string) string {
 var r = regexp.MustCompile(`\b\w{4}\b`)
 
 func processStringGo(str string) string {
-	return r.ReplaceAllLiteralString(str, "gogo")
+	return r.ReplaceAllString(str, "gogo")
 }
 
 func simpleStringRs(str string) string {
