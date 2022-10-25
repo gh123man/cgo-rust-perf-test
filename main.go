@@ -27,6 +27,8 @@ func main() {
 
 	for {
 		text, _ := reader.ReadString('\n')
+		text = strings.TrimSpace(text)
+		text = fmt.Sprintf("{\"message\":\"%s\"}", text)
 		if *rust {
 			fmt.Print(processStringRs(text))
 		} else {
@@ -37,7 +39,8 @@ func main() {
 
 func processStringRs(str string) string {
 	cs := C.CString(str)
-	b := C.transform(cs)
+	// b := C.transform(cs)
+	b := C.transform_vrl(cs)
 	s := C.GoString(b)
 	defer C.free(unsafe.Pointer(cs))
 	defer C.free(unsafe.Pointer(b))

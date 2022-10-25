@@ -1,4 +1,4 @@
 #!/bin/bash 
 
 cargo build
-go run .
+RUST_BACKTRACE=1 go run . -rust

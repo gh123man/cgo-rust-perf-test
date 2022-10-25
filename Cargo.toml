@@ -14,3 +14,7 @@ crate-type   = ["rlib", "cdylib"]
 libc = "0.2"
 regex = "1.5"
 lazy_static = "1.4.0"
+
+value = { git = "https://github.com/vectordotdev/vector", ref = "v0.22.2" }
+vrl = { git = "https://github.com/vectordotdev/vector", ref = "v0.22.2" }
+vrl-stdlib = { git = "https://github.com/vectordotdev/vector", ref = "v0.22.2" }
