@@ -20,7 +20,8 @@ lazy_static! {
 thread_local! {static RUNTIME: RefCell<Runtime> = RefCell::new(Runtime::new(state::Runtime::default()));}
 
 pub fn compile_vrl() -> Program {
-    let program = r#". = replace(string!(.), r'\b\w{4}\b', "rust")"#;
+    // let program = r#"."#;
+    let program = r#"replace(string!(.), r'\b\w{4}\b', "rust")"#;
     return vrl::compile(&program, &vrl_stdlib::all()).unwrap().program;
 }
 
