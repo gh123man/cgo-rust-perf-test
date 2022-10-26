@@ -16,15 +16,23 @@ import (
 	"regexp"
 	"strings"
 	"unsafe"
+
+	"github.com/benthosdev/benthos/v4/public/bloblang"
 )
 
 func main() {
 
 	rust := flag.Bool("rust", false, "use rust")
 	vrl := flag.Bool("vrl", false, "use vrl")
+	useBloblang := flag.Bool("bloblang", false, "use bloblang")
 	flag.Parse()
 
 	reader := bufio.NewReader(os.Stdin)
+
+	var exe *bloblang.Executor
+	if *useBloblang {
+		exe = setupBloblang()
+	}
 
 	for {
 		text, _ := reader.ReadString('\n')
@@ -34,6 +42,8 @@ func main() {
 			text = strings.TrimSpace(text)
 			text = fmt.Sprintf("{\"message\":\"%s\"}", text)
 			fmt.Println(processStringVrl(text))
+		} else if *useBloblang {
+			fmt.Println(processStringBloblang(exe, text))
 		} else {
 			fmt.Println(processStringGo(text))
 		}
