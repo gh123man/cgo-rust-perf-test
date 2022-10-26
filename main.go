@@ -1,7 +1,7 @@
 package main
 
-//#cgo CFLAGS: -I./target/debug/
-//#cgo LDFLAGS: -L./target/debug -lhelloRust
+//#cgo CFLAGS: -I./target/release/
+//#cgo LDFLAGS: -L./target/release -lhelloRust
 //
 //#include <stdio.h>
 //#include <stdlib.h>
@@ -21,25 +21,36 @@ import (
 func main() {
 
 	rust := flag.Bool("rust", false, "use rust")
+	vrl := flag.Bool("vrl", false, "use vrl")
 	flag.Parse()
 
 	reader := bufio.NewReader(os.Stdin)
 
 	for {
 		text, _ := reader.ReadString('\n')
-		text = strings.TrimSpace(text)
-		text = fmt.Sprintf("{\"message\":\"%s\"}", text)
 		if *rust {
-			fmt.Print(processStringRs(text))
+			fmt.Println(processStringRs(text))
+		} else if *vrl {
+			text = strings.TrimSpace(text)
+			text = fmt.Sprintf("{\"message\":\"%s\"}", text)
+			fmt.Println(processStringVrl(text))
 		} else {
-			fmt.Print(processStringGo(text))
+			fmt.Println(processStringGo(text))
 		}
 	}
 }
 
 func processStringRs(str string) string {
 	cs := C.CString(str)
-	// b := C.transform(cs)
+	b := C.transform(cs)
+	s := C.GoString(b)
+	defer C.free(unsafe.Pointer(cs))
+	defer C.free(unsafe.Pointer(b))
+	return s
+}
+
+func processStringVrl(str string) string {
+	cs := C.CString(str)
 	b := C.transform_vrl(cs)
 	s := C.GoString(b)
 	defer C.free(unsafe.Pointer(cs))

@@ -1,14 +1,15 @@
+
+
 use std::ffi::CStr;
 use std::ffi::CString;
 use regex::Regex;
 use lazy_static::lazy_static;
 use ::value::{Secrets, Value};
-use vrl::CompilationResult;
 use vrl::Program;
 use vrl::TimeZone;
 use std::collections::BTreeMap;
-use vrl::{diagnostic::Formatter, state, value, Runtime, TargetValueRef};
-
+use vrl::{state, Runtime, TargetValueRef};
+use std::cell::RefCell;
 
 
 lazy_static! {
@@ -16,15 +17,14 @@ lazy_static! {
     static ref VRL_PROGRAM: Program = compile_vrl();
 }
 
+thread_local! {static RUNTIME: RefCell<Runtime> = RefCell::new(Runtime::new(state::Runtime::default()));}
+
 pub fn compile_vrl() -> Program {
     let program = r#". = replace(string!(.), r'\b\w{4}\b', "rust")"#;
     return vrl::compile(&program, &vrl_stdlib::all()).unwrap().program;
 }
 
 pub fn run_vrl(s: &str) -> String {
-    let mut runtime = Runtime::new(state::Runtime::default());
-
-    
     let mut value: Value = Value::from(s);
     let mut metadata = Value::Object(BTreeMap::new());
     let mut secrets = Secrets::new();
@@ -34,8 +34,11 @@ pub fn run_vrl(s: &str) -> String {
         secrets: &mut secrets,
     };
 
+    let output = RUNTIME.with(|r| {
+        // r.borrow_mut().clear();
+        return  r.borrow_mut().resolve(&mut target, &VRL_PROGRAM, &TimeZone::Local);
+    });
     
-    let output = runtime.resolve(&mut target, &VRL_PROGRAM, &TimeZone::Local);
     return output.unwrap().to_string()
 }
 

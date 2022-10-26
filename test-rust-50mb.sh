@@ -1,3 +1,3 @@
 #!/bin/bash 
-cargo build
+cargo build --release
 ./flog -l -b 1024 -r 50000 | go run . -rust | pv > /dev/null
