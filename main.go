@@ -1,7 +1,7 @@
 package main
 
 //#cgo CFLAGS: -I${SRCDIR}/target/release/
-//#cgo LDFLAGS: -L${SRCDIR}/target/release -Wl,-rpath=${SRCDIR}/target/release -lhelloRust
+//#cgo LDFLAGS: -L${SRCDIR}/target/release -Wl,-rpath,${SRCDIR}/target/release -lhelloRust
 //
 //#include <stdio.h>
 //#include <stdlib.h>
