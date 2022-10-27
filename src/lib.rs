@@ -1,16 +1,13 @@
-
-
+use ::value::{Secrets, Value};
+use lazy_static::lazy_static;
+use regex::Regex;
+use std::cell::RefCell;
+use std::collections::BTreeMap;
 use std::ffi::CStr;
 use std::ffi::CString;
-use regex::Regex;
-use lazy_static::lazy_static;
-use ::value::{Secrets, Value};
 use vrl::Program;
 use vrl::TimeZone;
-use std::collections::BTreeMap;
 use vrl::{state, Runtime, TargetValueRef};
-use std::cell::RefCell;
-
 
 lazy_static! {
     static ref RE: Regex = Regex::new(r"\b\w{4}\b").unwrap();
@@ -21,7 +18,7 @@ thread_local! {static RUNTIME: RefCell<Runtime> = RefCell::new(Runtime::new(stat
 
 pub fn compile_vrl() -> Program {
     // let program = r#"."#;
-    let program = r#". = replace(string!(.), r'\b\w{4}\b', "rust")"#;
+    let program = r#". = replace(string!(.), r'\b\w{4}\b', "rust", 1)"#;
     return vrl::compile(&program, &vrl_stdlib::all()).unwrap().program;
 }
 
@@ -37,17 +34,26 @@ pub fn run_vrl(s: &str) -> String {
 
     let output = RUNTIME.with(|r| {
         // r.borrow_mut().clear();
-        return  r.borrow_mut().resolve(&mut target, &VRL_PROGRAM, &TimeZone::Local);
+        return r
+            .borrow_mut()
+            .resolve(&mut target, &VRL_PROGRAM, &TimeZone::Local);
     });
-    
-    return output.unwrap().to_string()
+
+    return output.unwrap().to_string();
 }
 
 #[no_mangle]
 pub extern "C" fn transform(input: *const libc::c_char) -> *const libc::c_char {
     let inpt: &CStr = unsafe { CStr::from_ptr(input) };
-    let replaced = RE.replace(inpt.to_str().unwrap(), "rust");
+    let replaced = RE.replacen(inpt.to_str().unwrap(), 1, "rust");
     let c_str = CString::new(replaced.as_bytes()).expect("CString::new failed");
+    return c_str.into_raw();
+}
+
+#[no_mangle]
+pub extern "C" fn noop(input: *const libc::c_char) -> *const libc::c_char {
+    let inpt: &CStr = unsafe { CStr::from_ptr(input) };
+    let c_str = CString::new(inpt.to_str().unwrap()).expect("CString::new failed");
     return c_str.into_raw();
 }
 
@@ -58,14 +64,3 @@ pub extern "C" fn transform_vrl(input: *const libc::c_char) -> *const libc::c_ch
     let c_str = CString::new(output.as_bytes()).expect("CString::new failed");
     return c_str.into_raw();
 }
-
-#[no_mangle]
-pub extern "C" fn passthrough(input: *const libc::c_char) -> *const libc::c_char {
-    let inpt: &CStr = unsafe { CStr::from_ptr(input) };
-    let rust_str = inpt.to_str().unwrap().to_string();
-    let c_str = CString::new(rust_str).expect("CString::new failed");
-
-    
-    return c_str.into_raw();
-}
-
