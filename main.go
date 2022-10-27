@@ -1,12 +1,12 @@
 package main
 
-//#cgo CFLAGS: -I./target/release/
-//#cgo LDFLAGS: -L./target/release -lhelloRust
+//#cgo CFLAGS: -I${SRCDIR}/target/release/
+//#cgo LDFLAGS: -L${SRCDIR}/target/release -Wl,-rpath=${SRCDIR}/target/release -lhelloRust
 //
 //#include <stdio.h>
 //#include <stdlib.h>
 //#include <string.h>
-//#include <helloRust.h>
+//#include "helloRust.h"
 import "C"
 import (
 	"bufio"
@@ -182,15 +182,6 @@ var r = regexp.MustCompile(`\b\w{4}\b`)
 
 func processStringGo(str string) string {
 	return r.ReplaceAllString(str, "gogo")
-}
-
-func simpleStringRs(str string) string {
-	cs := C.CString(str)
-	b := C.passthrough(cs)
-	s := C.GoString(b)
-	defer C.free(unsafe.Pointer(cs))
-	defer C.free(unsafe.Pointer(b))
-	return s
 }
 
 // Copy a string
