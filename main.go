@@ -12,6 +12,7 @@ import (
 	"bufio"
 	"flag"
 	"fmt"
+	"io/ioutil"
 	"log"
 	"net"
 	"os"
@@ -22,7 +23,9 @@ import (
 	"unsafe"
 
 	"github.com/benthosdev/benthos/v4/public/bloblang"
+	"github.com/bytecodealliance/wasmtime-go"
 	"github.com/dustin/go-humanize"
+	"github.com/wasmerio/wasmer-go/wasmer"
 	"go.uber.org/atomic"
 )
 
@@ -87,8 +90,62 @@ func getBlackholeWriter(tr *throughputRecorder) func(a ...any) (int, error) {
 
 type OutFunc func(a ...any) (int, error)
 
-func main() {
+func runWasmWithWasmer() {
+	// Wasmer-go uses cgo bindings to talk to wasmer which is the core runtime
+	// wasmer-go currently has disabled aarch64,linux support :(
+	wasmBytes, _ := ioutil.ReadFile("./target/wasm32-wasi/debug/helloRust.wasm")
 
+	store := wasmer.NewStore(wasmer.NewEngine())
+	module, _ := wasmer.NewModule(store, wasmBytes)
+
+	importObject := wasmer.NewImportObject()
+
+	instance, err := wasmer.NewInstance(module, importObject)
+	if err != nil {
+		panic(err)
+	}
+
+	start, err := instance.Exports.GetWasiStartFunction()
+	if err != nil {
+		panic(err)
+	}
+	start()
+
+	HelloWorld, err := instance.Exports.GetFunction("noop")
+	if err != nil {
+		panic(err)
+	}
+	result, _ := HelloWorld()
+	fmt.Println(result)
+}
+
+func runWasmWithWasmtime() {
+	// Wasmtime has stripped support for 'interface types' which is a proposal
+	// for WASM that defines how non-primitive data-types can be passed/returned
+	// from wasm.
+	// As a result, the below example will not work.
+	engine := wasmtime.NewEngine()
+	store := wasmtime.NewStore(engine)
+	module, err := wasmtime.NewModuleFromFile(engine, "./target/wasm32-wasi/debug/helloRust.wasm")
+	if err != nil {
+		panic(err)
+	}
+	instance, err := wasmtime.NewInstance(store, module, []wasmtime.AsExtern{})
+	if err != nil {
+		panic(err)
+	}
+
+	noop := instance.GetExport(store, "noop").Func()
+	val, err := noop.Call(store, "hello world")
+	if err != nil {
+		panic(err)
+	}
+	fmt.Printf("noop(\"hello world\") = %v\n", val.(string))
+}
+
+func main() {
+	runWasmWithWasmer()
+	return
 	rust := flag.Bool("rust", false, "use rust")
 	noopRust := flag.Bool("nooprust", false, "use no-op rust")
 	noopGo := flag.Bool("noopgo", false, "use no-op go")
