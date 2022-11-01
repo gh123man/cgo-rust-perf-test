@@ -35,14 +35,12 @@ type WazeroRunner struct {
 	runtime wazero.Runtime
 }
 
-func NewWazeroRunner(ctx context.Context) *WazeroRunner {
+func NewWazeroRunner(ctx context.Context, wasmBytes []byte) *WazeroRunner {
 	// Create a new WebAssembly Runtime.
 	r := wazero.NewRuntime(ctx)
 
 	wasi_snapshot_preview1.MustInstantiate(ctx, r)
-	// Instantiate a WebAssembly module that exports
-	// "allocate", "deallocate" and "noop_wasm"
-	mod, err := r.InstantiateModuleFromBinary(ctx, compiledWasmBytes)
+	mod, err := r.InstantiateModuleFromBinary(ctx, wasmBytes)
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -109,7 +107,7 @@ func runWazero() {
 	// Choose the context to use for function calls.
 	ctx := context.Background()
 
-	runner := NewWazeroRunner(ctx)
+	runner := NewWazeroRunner(ctx, compiledWasmBytes)
 	defer runner.Close() // This closes everything this Runtime created.
 
 	res := runner.runNoop("hello wazero")
