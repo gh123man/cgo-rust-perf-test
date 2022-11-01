@@ -10,7 +10,6 @@ package main
 import "C"
 import (
 	"bufio"
-	"context"
 	_ "embed"
 	"flag"
 	"fmt"
@@ -24,11 +23,7 @@ import (
 	"unsafe"
 
 	"github.com/benthosdev/benthos/v4/public/bloblang"
-	"github.com/bytecodealliance/wasmtime-go"
 	"github.com/dustin/go-humanize"
-	"github.com/tetratelabs/wazero"
-	"github.com/tetratelabs/wazero/api"
-	"github.com/tetratelabs/wazero/imports/wasi_snapshot_preview1"
 	"go.uber.org/atomic"
 )
 
@@ -100,176 +95,9 @@ type OutFunc func(a ...any) (int, error)
 //go:embed target/wasm32-wasi/release/helloRust.wasm
 var compiledWasmBytes []byte
 
-func instantiateWazero(ctx context.Context) (wazero.Runtime, api.Module) {
-	// Create a new WebAssembly Runtime.
-	r := wazero.NewRuntime(ctx)
-
-	wasi_snapshot_preview1.MustInstantiate(ctx, r)
-	// Instantiate a WebAssembly module that exports
-	// "allocate", "deallocate" and "noop_wasm"
-	mod, err := r.InstantiateModuleFromBinary(ctx, compiledWasmBytes)
-	if err != nil {
-		log.Panicln(err)
-	}
-
-	return r, mod
-}
-
-func unpackUInt64(val uint64) (uint32, uint32) {
-	return uint32(val >> 32), uint32(val)
-}
-
-func unpackInt64(val int64) (int32, int32) {
-	return int32(val >> 32), int32(val)
-}
-
-func invokeNoopViaWazero(ctx context.Context, mod api.Module, input string) string {
-	// Get references to WebAssembly functions
-	noop := mod.ExportedFunction("noop_wasm")
-	allocate := mod.ExportedFunction("allocate")
-	deallocate := mod.ExportedFunction("deallocate")
-
-	inputSize := uint64(len(input))
-
-	// Instead of an arbitrary memory offset, use Rust's allocator. Notice
-	// there is nothing string-specific in this allocation function. The same
-	// function could be used to pass binary serialized data to Wasm.
-	results, err := allocate.Call(ctx, inputSize)
-	if err != nil {
-		log.Panicln(err)
-	}
-
-	inputPtr := results[0]
-	// This pointer was allocated by Rust, but owned by Go, So, we have to
-	// deallocate it when finished
-	defer deallocate.Call(ctx, inputPtr, inputSize)
-
-	// The pointer is a linear memory offset, which is where we write the input string.
-	if !mod.Memory().Write(ctx, uint32(inputPtr), []byte(input)) {
-		log.Panicf("Memory.Write(%d, %d) out of range of memory size %d",
-			inputPtr, inputSize, mod.Memory().Size(ctx))
-	}
-
-	// Invoke 'noop' passing in the pointer+size of the input string
-	// Result is a packed ptr+size of a rust-allocated string
-	packedPtrSize, err := noop.Call(ctx, inputPtr, inputSize)
-	if err != nil {
-		log.Panicln(err)
-	}
-	noopResultPtr, noopResultSize := unpackUInt64(packedPtrSize[0])
-	// This pointer was allocated by Rust, but owned by Go, So, we have to
-	// deallocate it when finished
-	defer deallocate.Call(ctx, uint64(noopResultPtr), uint64(noopResultSize))
-
-	// The pointer is a linear memory offset, which is where we write the input string.
-	resultStringBytes, ok := mod.Memory().Read(ctx, noopResultPtr, noopResultSize)
-	if !ok {
-		log.Panicf("Memory.Read(%d, %d) out of range of memory size %d",
-			noopResultPtr, noopResultSize, mod.Memory().Size(ctx))
-	}
-	res := string(resultStringBytes)
-	return res
-}
-
-func runWazero() {
-	// Choose the context to use for function calls.
-	ctx := context.Background()
-	r, wazeroMod := instantiateWazero(ctx)
-	defer r.Close(ctx) // This closes everything this Runtime created.
-
-	fmt.Println("Result from wazero wasm call:", invokeNoopViaWazero(ctx, wazeroMod, "Hello wasm world"))
-}
-
-func printExternType(ty *wasmtime.ExternType) {
-	if ft := ty.FuncType(); ft != nil {
-		log.Print("\tFunction:", ft)
-		for i, param := range ft.Params() {
-			log.Printf("\t\tParam %d: type: %s - %s", i, param.Kind().String(), param.String())
-		}
-		for i, result := range ft.Results() {
-			log.Printf("\t\tResult %d: type: %s - %s", i, result.Kind().String(), result.String())
-		}
-	}
-	if gt := ty.GlobalType(); gt != nil {
-		log.Print("Global:", gt)
-	}
-	if mt := ty.MemoryType(); mt != nil {
-		log.Print("Memory:", mt)
-	}
-	if tt := ty.TableType(); tt != nil {
-		log.Print("Table:", tt)
-	}
-}
-
-func runWasmWithWasmtime(input string) string {
-	engine := wasmtime.NewEngine()
-	module, err := wasmtime.NewModule(engine, compiledWasmBytes)
-	if err != nil {
-		log.Panicln(err)
-	}
-
-	log.Print("Listing imports requested by module")
-	for i, imp := range module.Imports() {
-		log.Printf("Import #%d - %q", i, *imp.Name())
-		log.Print("\tModule:", imp.Module(), "  Type:", *imp.Type())
-	}
-	log.Print("Listing exports from module")
-	for i, exp := range module.Exports() {
-		log.Printf("Export #%d - %q", i, exp.Name())
-		printExternType(exp.Type())
-	}
-
-	// Create a linker with WASI functions defined within it
-	linker := wasmtime.NewLinker(engine)
-	err = linker.DefineWasi()
-	if err != nil {
-		log.Panicln(err)
-	}
-
-	// Configure WASI imports to write stdout into a file, and then create
-	// a `Store` using this wasi configuration.
-	wasiConfig := wasmtime.NewWasiConfig()
-	store := wasmtime.NewStore(engine)
-	store.SetWasi(wasiConfig)
-	instance, err := linker.Instantiate(store, module)
-	if err != nil {
-		log.Panicln(err)
-	}
-
-	// Load up our exports from the instance
-	memory := instance.GetExport(store, "memory").Memory()
-	memoryBuf := memory.UnsafeData(store)
-
-	noop := instance.GetExport(store, "noop_wasm").Func()
-	allocate := instance.GetExport(store, "allocate").Func()
-	deallocate := instance.GetExport(store, "deallocate").Func()
-
-	inputSize := int32(len(input))
-	result, err := allocate.Call(store, inputSize)
-	if err != nil {
-		log.Panicln(err)
-	}
-
-	inputPtr := result.(int32)
-	defer deallocate.Call(store, inputPtr, inputSize)
-
-	copy(memoryBuf[inputPtr:], input)
-
-	packedPtrSize, err := noop.Call(store, inputPtr, inputSize)
-	if err != nil {
-		log.Panicln(err)
-	}
-	noopResultPtr, noopResultSize := unpackInt64(packedPtrSize.(int64))
-	defer deallocate.Call(store, int64(noopResultPtr), int64(noopResultSize))
-	// Refresh memoryBuf, after a `.Call` it is invalid
-	memoryBuf = memory.UnsafeData(store)
-
-	return string(memoryBuf[noopResultPtr : noopResultPtr+noopResultSize])
-}
-
 func main() {
-	//runWazero()
-	fmt.Println(runWasmWithWasmtime("hello rusty wasmy world"))
+	runWazero()
+	runWasmtime()
 	return
 	rust := flag.Bool("rust", false, "use rust")
 	noopRust := flag.Bool("nooprust", false, "use no-op rust")
