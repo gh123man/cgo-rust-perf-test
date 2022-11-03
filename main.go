@@ -31,6 +31,7 @@ import (
 const (
 	sockAddr     = "/tmp/cgo.sock"
 	wasmPageSize = 65536
+	bufSize      = 2048
 )
 
 func getUdsReader() *bufio.Reader {
@@ -102,7 +103,11 @@ func main() {
 	useRustNoop := flag.Bool("nooprust", false, "use no-op rust")
 	useGoNoop := flag.Bool("noopgo", false, "use no-op go")
 	useWazeroNoop := flag.Bool("noopwazero", false, "use no-op wasm via wazero runtime")
+	useWazero := flag.Bool("wazero", false, "use vrl running insido wazero")
+	useWazeroRegex := flag.Bool("regexwazero", false, "use raw regex running insido wazero")
 	useWasmtimeNoop := flag.Bool("noopwasmtime", false, "use no-op wasm via wasmtime runtime")
+	useWasmtime := flag.Bool("wasmtime", false, "use vrl running inside wasmtime")
+	useWasmtimeRegex := flag.Bool("regexwasmtime", false, "use raw regex running inside wasmtime")
 	useBloblang := flag.Bool("bloblang", false, "use bloblang")
 
 	// misc
@@ -123,7 +128,7 @@ func main() {
 	}
 
 	var wazeroRunner *WazeroRunner
-	if *useWazeroNoop {
+	if *useWazeroNoop || *useWazero || *useWazeroRegex {
 		// Choose the context to use for function calls.
 		ctx := context.Background()
 
@@ -132,7 +137,7 @@ func main() {
 	}
 
 	var wasmtimeRunner *WasmtimeRunner
-	if *useWasmtimeNoop {
+	if *useWasmtimeNoop || *useWasmtime || *useWasmtimeRegex {
 		wasmtimeRunner = NewWasmtimeRunner(compiledWasmBytes)
 	}
 
@@ -171,8 +176,16 @@ func main() {
 			output(simpleStringGo(text))
 		} else if *useWazeroNoop {
 			output(wazeroRunner.runNoop(text))
+		} else if *useWazeroRegex {
+			output(wazeroRunner.runRegex(text))
+		} else if *useWazero {
+			output(wazeroRunner.runVrl(text))
 		} else if *useWasmtimeNoop {
 			output(wasmtimeRunner.runNoop(text))
+		} else if *useWasmtime {
+			output(wasmtimeRunner.runVrl(text))
+		} else if *useWasmtimeRegex {
+			output(wasmtimeRunner.runRegex(text))
 		} else {
 			output(processStringGo(text))
 		}

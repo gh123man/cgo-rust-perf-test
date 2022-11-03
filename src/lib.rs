@@ -1,5 +1,4 @@
 extern crate alloc;
-extern crate wee_alloc;
 use ::value::{Secrets, Value};
 use lazy_static::lazy_static;
 use regex::Regex;
@@ -72,6 +71,49 @@ pub extern "C" fn transform_vrl(input: *const libc::c_char) -> *const libc::c_ch
 }
 
 // Wasm Integration Below
+//
+/// WebAssembly export that accepts a string (linear memory offset, byteCount)
+/// and creates a copy, then writes that copy back into the same place in
+/// memory. It returns the length of the string that was just written.
+///
+#[cfg_attr(all(target_arch = "wasm32"), export_name = "regex_wasm")]
+#[no_mangle]
+pub unsafe extern "C" fn _regex_wasm(ptr: u32, len: u32) -> u32 {
+    let name = &ptr_to_string(ptr, len);
+
+    let output = RE.replacen(name, 1, "rust");
+    store_string_at_ptr(&output, ptr);
+
+    output.len() as u32
+}
+/// WebAssembly export that accepts a string (linear memory offset, byteCount)
+/// and creates a copy, then writes that copy back into the same place in
+/// memory. It returns the length of the string that was just written.
+///
+#[cfg_attr(all(target_arch = "wasm32"), export_name = "vrl_wasm")]
+#[no_mangle]
+pub unsafe extern "C" fn _vrl_wasm_buffered(ptr: u32, len: u32) -> u32 {
+    let name = &ptr_to_string(ptr, len);
+
+    let output = run_vrl(name);
+    store_string_at_ptr(&output, ptr);
+
+    output.len() as u32
+}
+
+/// WebAssembly export that accepts a string (linear memory offset, byteCount)
+/// and creates a copy, then writes that copy back into the same place in
+/// memory. It returns the length of the string that was just written.
+///
+#[cfg_attr(all(target_arch = "wasm32"), export_name = "noop_wasm")]
+#[no_mangle]
+pub unsafe extern "C" fn _noop_wasm_buffered(ptr: u32, len: u32) -> u32 {
+    let name = &ptr_to_string(ptr, len);
+    let new_string = String::from(name); // the no-op
+    store_string_at_ptr(&new_string, ptr);
+
+    new_string.len() as u32
+}
 /// WebAssembly export that accepts a string (linear memory offset, byteCount)
 /// and returns a pointer/size pair packed into a u64.
 ///
@@ -79,7 +121,10 @@ pub extern "C" fn transform_vrl(input: *const libc::c_char) -> *const libc::c_ch
 /// [`deallocate`] when finished.
 /// Note: This uses a u64 instead of two result values for compatibility with
 /// WebAssembly 1.0.
-#[cfg_attr(all(target_arch = "wasm32"), export_name = "noop_wasm")]
+#[cfg_attr(
+    all(target_arch = "wasm32"),
+    export_name = "noop_wasm_dynamic_allocation"
+)]
 #[no_mangle]
 pub unsafe extern "C" fn _noop_wasm(ptr: u32, len: u32) -> u64 {
     let name = &ptr_to_string(ptr, len);
@@ -101,6 +146,15 @@ unsafe fn ptr_to_string(ptr: u32, len: u32) -> String {
     return String::from(utf8);
 }
 
+/// Stores the given string 's' at the memory location pointed to by 'ptr'
+/// This assumes no buffer overflows - here be dragons.
+unsafe fn store_string_at_ptr(s: &str, ptr: u32) {
+    // Create a mutable slice of u8 pointing at the buffer given as 'ptr'
+    // with a length of the string we're about to copy into it
+    let dest = slice::from_raw_parts_mut(ptr as *mut u8, s.len() as usize);
+    dest.copy_from_slice(s.as_bytes());
+}
+
 /// Returns a pointer and size pair for the given string in a way compatible
 /// with WebAssembly numeric types.
 ///
@@ -112,11 +166,7 @@ unsafe fn string_to_ptr(s: &String) -> (u32, u32) {
 
 // WASM Memory-related helper functinos
 //
-// TODO - Only enable WeeAlloc in wasm32 builds
-// #[cfg_attr(all(target_arch = "wasm32"), global_allocator)]
-/// Set the global allocator to the WebAssembly optimized one.
-#[global_allocator]
-static ALLOC: wee_alloc::WeeAlloc = wee_alloc::WeeAlloc::INIT;
+// TODO explore using lol_alloc instead of default rust allocator
 /// WebAssembly export that allocates a pointer (linear memory offset) that can
 /// be used for a string.
 ///

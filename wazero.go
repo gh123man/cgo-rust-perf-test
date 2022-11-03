@@ -33,6 +33,7 @@ type WazeroRunner struct {
 	ctx     context.Context
 	mod     api.Module
 	runtime wazero.Runtime
+	bufPtr  uint32
 }
 
 func NewWazeroRunner(ctx context.Context, wasmBytes []byte) *WazeroRunner {
@@ -45,15 +46,65 @@ func NewWazeroRunner(ctx context.Context, wasmBytes []byte) *WazeroRunner {
 		log.Panicln(err)
 	}
 
-	return &WazeroRunner{
-		ctx: ctx, mod: mod, runtime: r,
+	allocate := mod.ExportedFunction("allocate")
+
+	results, err := allocate.Call(ctx, bufSize)
+	if err != nil {
+		log.Panicln(err)
 	}
 
+	bufPtr := results[0]
+
+	return &WazeroRunner{
+		ctx: ctx, mod: mod, runtime: r, bufPtr: uint32(bufPtr),
+	}
+}
+
+func (wr *WazeroRunner) executeStringInStringOut(input string, funcy api.Function) string {
+	if len(input) > bufSize {
+		log.Panicf("Input string length %d is bigger than the buffer %d.", len(input), bufSize)
+	}
+
+	if !wr.mod.Memory().Write(wr.ctx, wr.bufPtr, []byte(input)) {
+		log.Panicf("Memory.Write(%d, %d) out of range of memory size %d",
+			wr.bufPtr, len(input), wr.mod.Memory().Size(wr.ctx))
+	}
+
+	results, err := funcy.Call(wr.ctx, uint64(wr.bufPtr), uint64(len(input)))
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	resultSize := results[0]
+
+	resultStringBytes, ok := wr.mod.Memory().Read(wr.ctx, wr.bufPtr, uint32(resultSize))
+	if !ok {
+		log.Panicf("Memory.Read(%d, %d) out of range of memory size %d",
+			wr.bufPtr, resultSize, wr.mod.Memory().Size(wr.ctx))
+	}
+	res := string(resultStringBytes)
+	return res
+}
+
+func (wr *WazeroRunner) runVrl(input string) string {
+	vrl := wr.mod.ExportedFunction("vrl_wasm")
+
+	return wr.executeStringInStringOut(input, vrl)
+}
+
+func (wr *WazeroRunner) runRegex(input string) string {
+	vrl := wr.mod.ExportedFunction("regex_wasm")
+
+	return wr.executeStringInStringOut(input, vrl)
 }
 
 func (wr *WazeroRunner) runNoop(input string) string {
-	// Get references to WebAssembly functions
 	noop := wr.mod.ExportedFunction("noop_wasm")
+	return wr.executeStringInStringOut(input, noop)
+}
+
+func (wr *WazeroRunner) runNoopDynamicAllocation(input string) string {
+	noop := wr.mod.ExportedFunction("noop_wasm_dynamic_allocation")
 	allocate := wr.mod.ExportedFunction("allocate")
 	deallocate := wr.mod.ExportedFunction("deallocate")
 

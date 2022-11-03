@@ -37,6 +37,7 @@ func printExternType(ty *wasmtime.ExternType) {
 type WasmtimeRunner struct {
 	instance *wasmtime.Instance
 	store    *wasmtime.Store
+	bufPtr   int32
 }
 
 func NewWasmtimeRunner(wasmBytes []byte) *WasmtimeRunner {
@@ -76,15 +77,69 @@ func NewWasmtimeRunner(wasmBytes []byte) *WasmtimeRunner {
 		log.Panicln(err)
 	}
 
-	return &WasmtimeRunner{instance, store}
+	// Pre-allocate buffer to use
+	allocate := instance.GetExport(store, "allocate").Func()
+
+	result, err := allocate.Call(store, bufSize)
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	bufPtr := result.(int32)
+
+	return &WasmtimeRunner{instance, store, bufPtr}
+}
+
+func (wr *WasmtimeRunner) runStringInStringOut(input string, funcy *wasmtime.Func) string {
+	if len(input) > bufSize {
+		log.Panicf("Input string length %d is bigger than the buffer %d.", len(input), bufSize)
+	}
+	memory := wr.instance.GetExport(wr.store, "memory").Memory()
+	memoryBuf := memory.UnsafeData(wr.store)
+
+	inputSize := int32(len(input))
+
+	copy(memoryBuf[wr.bufPtr:], input)
+
+	result, err := funcy.Call(wr.store, wr.bufPtr, inputSize)
+	if err != nil {
+		log.Panicln(err)
+	}
+
+	resultSize := result.(int32)
+	// Refresh memoryBuf, after a `.Call` it is invalid
+	memoryBuf = memory.UnsafeData(wr.store)
+
+	start := wr.bufPtr
+	end := int64(wr.bufPtr + resultSize)
+
+	return string(memoryBuf[start:end])
+}
+
+func (wr *WasmtimeRunner) runVrl(input string) string {
+	vrl := wr.instance.GetExport(wr.store, "vrl_wasm").Func()
+
+	return wr.runStringInStringOut(input, vrl)
+}
+
+func (wr *WasmtimeRunner) runRegex(input string) string {
+	vrl := wr.instance.GetExport(wr.store, "regex_wasm").Func()
+
+	return wr.runStringInStringOut(input, vrl)
 }
 
 func (wr *WasmtimeRunner) runNoop(input string) string {
+	vrl := wr.instance.GetExport(wr.store, "noop_wasm").Func()
+
+	return wr.runStringInStringOut(input, vrl)
+}
+
+func (wr *WasmtimeRunner) runNoopDynamicAllocation(input string) string {
 	// Load up our exports from the wr.instance
 	memory := wr.instance.GetExport(wr.store, "memory").Memory()
 	memoryBuf := memory.UnsafeData(wr.store)
 
-	noop := wr.instance.GetExport(wr.store, "noop_wasm").Func()
+	noop := wr.instance.GetExport(wr.store, "noop_wasm_dynamic_allocation").Func()
 	allocate := wr.instance.GetExport(wr.store, "allocate").Func()
 	deallocate := wr.instance.GetExport(wr.store, "deallocate").Func()
 

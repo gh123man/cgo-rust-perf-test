@@ -28,10 +28,6 @@ serde_json = "1.0.87"
 value = { git = "https://github.com/vectordotdev/vector", ref = "v0.22.2", default-features = false }
 vrl = { git = "https://github.com/vectordotdev/vector", ref = "v0.22.2", default-features = false  }
 
-# wee_aloc is a WebAssembly optimized allocator, which is needed to use non-numeric types like strings.
-# See https://docs.rs/wee_alloc/latest/wee_alloc/
-wee_alloc = "0.4.5"
-
 [dependencies.vrl-stdlib]
 package = "vrl-stdlib"
 git = "https://github.com/vectordotdev/vector"
