@@ -1,20 +1,20 @@
 
-## Prerequisites 
+## Prerequisites
 
 - rust toolchain
-- go toolchain 
+- go toolchain
 
-That's it to run the benchmarks, just run `cargo build` first. 
+That's it to run the benchmarks, just run `cargo build` first.
 
 To run the test scripts
 
-- either be on an M1 mac and use the `flog` binary in the repo, [or build this first](https://github.com/DataDog/flog)
-- `brew install pv` (pipe viewer)
+- build [`flog` from source](https://github.com/DataDog/flog) and copy into this directory
+- `brew install pv` (pipe viewer) (optional, use with `-stdout` flag)
 
 
 ## Notes
 
-- you may need `LD_LIBRARY_PATH=target/debug/` before any of the commands/scripts
+- you _should not_ need any `LD_LIBRARY_PATH` hacks to run anymore.
 
 ## Benchmark results
 
