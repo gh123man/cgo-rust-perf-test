@@ -1,7 +1,7 @@
 package main
 
 //#cgo CFLAGS: -I${SRCDIR}/target/release/
-//#cgo LDFLAGS: -L${SRCDIR}/target/aarch64-unknown-linux-gnu/release -Wl,-rpath=${SRCDIR}/target/aarch64-unknown-linux-gnu/release -lhelloRust
+//#cgo LDFLAGS: -L${SRCDIR}/target/aarch64-unknown-linux-gnu/release -L${SRCDIR}/target/aarch64-apple-darwin/release -Wl,-rpath,${SRCDIR}/target/aarch64-unknown-linux-gnu/release -Wl,-rpath,${SRCDIR}/target/aarch64-apple-darwin/release -lhelloRust
 //
 //#include <stdio.h>
 //#include <stdlib.h>
