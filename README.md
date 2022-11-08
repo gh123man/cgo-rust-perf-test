@@ -4,7 +4,10 @@
 - rust toolchain
 - go toolchain
 
-That's it to run the benchmarks, just run `cargo build` first.
+That's it to run the benchmarks, just run `./build.sh` first.
+
+TODO - `build.sh` does not exist yet and also can I set the `LDFLAGS`
+automagically with `GOOS` maybe?
 
 To run the test scripts
 
@@ -12,9 +15,15 @@ To run the test scripts
 - `brew install pv` (pipe viewer) (optional, use with `-stdout` flag)
 
 
-## Notes
+## Building
 
-- you _should not_ need any `LD_LIBRARY_PATH` hacks to run anymore.
+If you're running on `aarch64` `linux` then everything should work out of the
+box.
+
+If not, then you'll need to update line 4 of `main.go` to point to the correct
+directory.
+
+
 
 ## Benchmark results
 

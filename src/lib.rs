@@ -6,6 +6,7 @@ use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::ffi::CStr;
 use std::ffi::CString;
+use vrl::diagnostic::Formatter;
 use vrl::Program;
 use vrl::TimeZone;
 use vrl::{state, Runtime, TargetValueRef};
@@ -24,7 +25,14 @@ thread_local! {static RUNTIME: RefCell<Runtime> = RefCell::new(Runtime::new(stat
 pub fn compile_vrl() -> Program {
     // let program = r#"."#;
     let program = r#". = replace(string!(.), r'\b\w{4}\b', "rust", 1)"#;
-    return vrl::compile(&program, &vrl_stdlib::all()).unwrap().program;
+    let functions = vrl_stdlib::all();
+    match vrl::compile(&program, &functions) {
+        Ok(res) => res.program,
+        Err(err) => {
+            let f = Formatter::new(&"", err);
+            panic!("{:#}", f)
+        }
+    }
 }
 
 pub fn run_vrl(s: &str) -> String {
