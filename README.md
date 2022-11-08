@@ -27,8 +27,27 @@ If you installed rust via `rustup`, simply run:
 
 Then run `./build.sh`
 
+## Benchmarks
+These are the results of `./build.sh && ./cgotest -benchmarktable`
 
-## Benchmark results
+
+| Execution Environment | Scenario | Result |
+| --------------------- | -------- | ------ |
+| Go | String Copy | 4.1 GB / second |
+| Rust (FFI) | String Copy | 1.6 GB / second |
+| Rust (WASM Wazero) | String Copy | 443 MB / second |
+| Rust (WASM Wasmtime) | String Copy | 204 MB / second |
+| Go | Regex Substitution | 49 MB / second |
+| Rust (FFI) | Regex Substitution | 1000 MB / second |
+| Rust (WASM Wazero) | Regex Substitution | 270 MB / second |
+| Rust (WASM Wasmtime) | Regex Substitution | 178 MB / second |
+| Rust (FFI) | VRL Replace | 3.2 MB / second |
+| Rust (WASM Wazero) | VRL Replace | 813 kB / second |
+| Rust (WASM Wasmtime) | VRL Replace | 502 kB / second |
+
+
+
+## Go Benchmarks
 
 ### M1 Max - macOS
 

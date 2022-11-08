@@ -113,7 +113,14 @@ func main() {
 	// misc
 	stdout := flag.Bool("stdout", false, "Output to stdout")
 	useUds := flag.Bool("uds", false, "accept data from UDS")
+	benchmarkTable := flag.Bool("benchmarktable", false, "Generate benchmark table by running all interesting combinations and emitting a markdown table")
+
 	flag.Parse()
+
+	if *benchmarkTable {
+		fmt.Print(generateBenchmarkTable())
+		return
+	}
 
 	var reader *bufio.Reader
 	if *useUds {
