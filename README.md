@@ -1,22 +1,72 @@
 
-## Prerequisites 
+## Prerequisites
 
 - rust toolchain
-- go toolchain 
+- go toolchain
 
-That's it to run the benchmarks, just run `cargo build` first. 
+See "Building" below for details.
 
 To run the test scripts
 
-- either be on an M1 mac and use the `flog` binary in the repo, [or build this first](https://github.com/DataDog/flog)
-- `brew install pv` (pipe viewer)
+- build [`flog` from source](https://github.com/DataDog/flog) and copy into this directory
+- `brew install pv` (pipe viewer) (optional, use with `-stdout` flag)
 
 
-## Notes
+## Building
+`build.sh` builds for a few platforms, so you will need the corresponding rust
+toolchain for each of them. This is a one-time setup.
 
-- you may need `LD_LIBRARY_PATH=target/debug/` before any of the commands/scripts
+Currently they are:
+- `aarch64-unknown-linux-gnu`
+- `wasm32-wasi`
+- `aarch64-apple-darwin`
 
-## Benchmark results
+If you installed rust via `rustup`, simply run:
+`rustup target add aarch64-unknown-linux-gnu wasm32-wasi aarch64-apple-darwin`
+
+
+Then run `./build.sh`
+
+## Benchmarks
+These are the results of `./build.sh && ./cgotest -benchmarktable`
+
+| Execution Environment | Scenario | Result |
+| --------------------- | -------- | ------ |
+| Go | String Copy | 3.6 GB / second |
+| Rust (FFI) | String Copy | 1.6 GB / second |
+| Rust (WASM Wazero) | String Copy | 428 MB / second |
+| Rust (WASM Wasmtime) | String Copy | 211 MB / second |
+| Go | Regex Replace | 49 MB / second |
+| Rust (FFI) | Regex Replace | 1.0 GB / second |
+| Rust (WASM Wazero) | Regex Replace | 269 MB / second |
+| Rust (WASM Wasmtime) | Regex Replace | 176 MB / second |
+| Rust (FFI) | VRL Replace | 404 MB / second |
+| Rust (WASM Wazero) | VRL Replace | 69 MB / second |
+| Rust (WASM Wasmtime) | VRL Replace | 110 MB / second |
+
+
+### (Old Results) - without VRL optimizations
+
+| Execution Environment | Scenario | Result |
+| --------------------- | -------- | ------ |
+| Go | String Copy | 4.1 GB / second |
+| Rust (FFI) | String Copy | 1.6 GB / second |
+| Rust (WASM Wazero) | String Copy | 443 MB / second |
+| Rust (WASM Wasmtime) | String Copy | 204 MB / second |
+| Go | Regex Replace | 49 MB / second |
+| Rust (FFI) | Regex Replace | 1000 MB / second |
+| Rust (WASM Wazero) | Regex Replace | 270 MB / second |
+| Rust (WASM Wasmtime) | Regex Replace | 178 MB / second |
+| Rust (FFI) | VRL Replace | 3.2 MB / second |
+| Rust (WASM Wazero) | VRL Replace | 813 kB / second |
+| Rust (WASM Wasmtime) | VRL Replace | 502 kB / second |
+
+[the aforementioned
+optimizations](https://github.com/vectordotdev/vector/pull/15079)
+
+
+
+## Go Benchmarks
 
 ### M1 Max - macOS
 

@@ -2,7 +2,7 @@ package main
 
 import "testing"
 
-// Run `cargo build` first!
+// Run `./build.sh` first!
 
 func benchmarkRustRegex(j int, b *testing.B) {
 	for n := 0; n < b.N; n++ {

@@ -1,7 +1,7 @@
 package main
 
 //#cgo CFLAGS: -I${SRCDIR}/target/release/
-//#cgo LDFLAGS: -L${SRCDIR}/target/release -Wl,-rpath,${SRCDIR}/target/release -lhelloRust
+//#cgo LDFLAGS: -L${SRCDIR}/target/aarch64-unknown-linux-gnu/release -L${SRCDIR}/target/aarch64-apple-darwin/release -Wl,-rpath,${SRCDIR}/target/aarch64-unknown-linux-gnu/release -Wl,-rpath,${SRCDIR}/target/aarch64-apple-darwin/release -lhelloRust
 //
 //#include <stdio.h>
 //#include <stdlib.h>
@@ -10,6 +10,8 @@ package main
 import "C"
 import (
 	"bufio"
+	"context"
+	_ "embed"
 	"flag"
 	"fmt"
 	"log"
@@ -27,7 +29,9 @@ import (
 )
 
 const (
-	sockAddr = "/tmp/cgo.sock"
+	sockAddr     = "/tmp/cgo.sock"
+	wasmPageSize = 65536
+	bufSize      = 2048
 )
 
 func getUdsReader() *bufio.Reader {
@@ -87,16 +91,36 @@ func getBlackholeWriter(tr *throughputRecorder) func(a ...any) (int, error) {
 
 type OutFunc func(a ...any) (int, error)
 
-func main() {
+// rustWasm was compiled using `cargo build --release --target wasm32-wasi`
+// VRL currently cannot build on wasm32-unknown-unknown, so we target wasm32-wasi
+//
+//go:embed target/wasm32-wasi/release/helloRust.wasm
+var compiledWasmBytes []byte
 
-	rust := flag.Bool("rust", false, "use rust")
-	noopRust := flag.Bool("nooprust", false, "use no-op rust")
-	noopGo := flag.Bool("noopgo", false, "use no-op go")
-	vrl := flag.Bool("vrl", false, "use vrl")
-	stdout := flag.Bool("stdout", false, "Output to stdout")
+func main() {
+	useRust := flag.Bool("rust", false, "use rust")
+	useVrl := flag.Bool("vrl", false, "use vrl")
+	useRustNoop := flag.Bool("nooprust", false, "use no-op rust")
+	useGoNoop := flag.Bool("noopgo", false, "use no-op go")
+	useWazeroNoop := flag.Bool("noopwazero", false, "use no-op wasm via wazero runtime")
+	useWazero := flag.Bool("wazero", false, "use vrl running insido wazero")
+	useWazeroRegex := flag.Bool("regexwazero", false, "use raw regex running insido wazero")
+	useWasmtimeNoop := flag.Bool("noopwasmtime", false, "use no-op wasm via wasmtime runtime")
+	useWasmtime := flag.Bool("wasmtime", false, "use vrl running inside wasmtime")
+	useWasmtimeRegex := flag.Bool("regexwasmtime", false, "use raw regex running inside wasmtime")
 	useBloblang := flag.Bool("bloblang", false, "use bloblang")
+
+	// misc
+	stdout := flag.Bool("stdout", false, "Output to stdout")
 	useUds := flag.Bool("uds", false, "accept data from UDS")
+	benchmarkTable := flag.Bool("benchmarktable", false, "Generate benchmark table by running all interesting combinations and emitting a markdown table")
+
 	flag.Parse()
+
+	if *benchmarkTable {
+		fmt.Print(generateBenchmarkTable())
+		return
+	}
 
 	var reader *bufio.Reader
 	if *useUds {
@@ -108,6 +132,20 @@ func main() {
 	var exe *bloblang.Executor
 	if *useBloblang {
 		exe = setupBloblang()
+	}
+
+	var wazeroRunner *WazeroRunner
+	if *useWazeroNoop || *useWazero || *useWazeroRegex {
+		// Choose the context to use for function calls.
+		ctx := context.Background()
+
+		wazeroRunner = NewWazeroRunner(ctx, compiledWasmBytes)
+		defer wazeroRunner.Close() // This closes everything this Runtime created.
+	}
+
+	var wasmtimeRunner *WasmtimeRunner
+	if *useWasmtimeNoop || *useWasmtime || *useWasmtimeRegex {
+		wasmtimeRunner = NewWasmtimeRunner(compiledWasmBytes)
 	}
 
 	var output OutFunc
@@ -131,18 +169,30 @@ func main() {
 
 	for {
 		text, _ := reader.ReadString('\n')
-		if *rust {
+		if *useRust {
 			output(processStringRs(text))
-		} else if *vrl {
+		} else if *useVrl {
 			text = strings.TrimSpace(text)
 			text = fmt.Sprintf("{\"message\":\"%s\"}", text)
 			output(processStringVrl(text))
 		} else if *useBloblang {
 			output(processStringBloblang(exe, text))
-		} else if *noopRust {
+		} else if *useRustNoop {
 			output(noopStringRs(text))
-		} else if *noopGo {
+		} else if *useGoNoop {
 			output(simpleStringGo(text))
+		} else if *useWazeroNoop {
+			output(wazeroRunner.runNoop(text))
+		} else if *useWazeroRegex {
+			output(wazeroRunner.runRegex(text))
+		} else if *useWazero {
+			output(wazeroRunner.runVrl(text))
+		} else if *useWasmtimeNoop {
+			output(wasmtimeRunner.runNoop(text))
+		} else if *useWasmtime {
+			output(wasmtimeRunner.runVrl(text))
+		} else if *useWasmtimeRegex {
+			output(wasmtimeRunner.runRegex(text))
 		} else {
 			output(processStringGo(text))
 		}
