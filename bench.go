@@ -38,10 +38,10 @@ func generateBenchmarkTable() string {
 		{"Rust (WASM Wasmtime)", "String Copy", func(s string) string { return wasmtimeRunner.runNoop(s) }, ""},
 
 		// Regex
-		{"Go", "Regex Substitution", processStringGo, ""},
-		{"Rust (FFI)", "Regex Substitution", processStringRs, ""},
-		{"Rust (WASM Wazero)", "Regex Substitution", func(s string) string { return wazeroRunner.runRegex(s) }, ""},
-		{"Rust (WASM Wasmtime)", "Regex Substitution", func(s string) string { return wasmtimeRunner.runRegex(s) }, ""},
+		{"Go", "Regex Replace", processStringGo, ""},
+		{"Rust (FFI)", "Regex Replace", processStringRs, ""},
+		{"Rust (WASM Wazero)", "Regex Replace", func(s string) string { return wazeroRunner.runRegex(s) }, ""},
+		{"Rust (WASM Wasmtime)", "Regex Replace", func(s string) string { return wasmtimeRunner.runRegex(s) }, ""},
 
 		// VRL
 		{"Rust (FFI)", "VRL Replace", processStringVrl, ""},
