@@ -4,10 +4,7 @@
 - rust toolchain
 - go toolchain
 
-That's it to run the benchmarks, just run `./build.sh` first.
-
-TODO - `build.sh` does not exist yet and also can I set the `LDFLAGS`
-automagically with `GOOS` maybe?
+See "Building" below for details.
 
 To run the test scripts
 
@@ -16,13 +13,19 @@ To run the test scripts
 
 
 ## Building
+`build.sh` builds for a few platforms, so you will need the corresponding rust
+toolchain for each of them. This is a one-time setup.
 
-If you're running on `aarch64` `linux` then everything should work out of the
-box.
+Currently they are:
+- `aarch64-unknown-linux-gnu`
+- `wasm32-wasi`
+- `aarch64-apple-darwin`
 
-If not, then you'll need to update line 4 of `main.go` to point to the correct
-directory.
+If you installed rust via `rustup`, simply run:
+`rustup target add aarch64-unknown-linux-gnu wasm32-wasi aarch64-apple-darwin`
 
+
+Then run `./build.sh`
 
 
 ## Benchmark results

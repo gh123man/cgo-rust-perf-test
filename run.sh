@@ -1,4 +1,4 @@
 #!/bin/bash
 
-cargo build --release
+./build.sh
 RUST_BACKTRACE=1 go run . -vrl -stdout

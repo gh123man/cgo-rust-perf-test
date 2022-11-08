@@ -1,3 +1,3 @@
 #!/bin/bash
-cargo build --release
+./build.sh
 ./flog -l -b 1024 -r 50000 | go run . -vrl
