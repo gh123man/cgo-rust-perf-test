@@ -13,23 +13,19 @@ To run the test scripts
 
 
 ## Building
-`build.sh` builds for a few platforms, so you will need the corresponding rust
-toolchain for each of them. This is a one-time setup.
+`./build.sh` should work on the following platforms:
+- Linux aarch64
+- Linux x86_64
+- MacOS aarch64
 
-Currently they are:
-- `aarch64-unknown-linux-gnu`
-- `wasm32-wasi`
-- `aarch64-apple-darwin`
-
-If you installed rust via `rustup`, simply run:
-`rustup target add aarch64-unknown-linux-gnu wasm32-wasi aarch64-apple-darwin`
-
-
-Then run `./build.sh`
+`build.sh` builds for the platform its currently running on and `wasm32-wasi`.
+Most users will not the toolchain for `wasm32-wasi` and should add it via `rustup`:
+`rustup target add wasm32-wasi`
 
 ## Benchmarks
 These are the results of `./build.sh && ./cgotest -benchmarktable`
 
+### M1 Max - macos
 | Execution Environment | Scenario | Result |
 | --------------------- | -------- | ------ |
 | Go | String Copy | 3.6 GB / second |
@@ -44,8 +40,22 @@ These are the results of `./build.sh && ./cgotest -benchmarktable`
 | Rust (WASM Wazero) | VRL Replace | 69 MB / second |
 | Rust (WASM Wasmtime) | VRL Replace | 110 MB / second |
 
+### ec2 c5.9xlarge (x86_64)
+| Execution Environment | Scenario | Result |
+| --------------------- | -------- | ------ |
+| Go | String Copy | 2.7 GB / second |
+| Rust (FFI) | String Copy | 1.0 GB / second |
+| Rust (WASM Wazero) | String Copy | 219 MB / second |
+| Rust (WASM Wasmtime) | String Copy | 111 MB / second |
+| Go | Regex Replace | 30 MB / second |
+| Rust (FFI) | Regex Replace | 671 MB / second |
+| Rust (WASM Wazero) | Regex Replace | 160 MB / second |
+| Rust (WASM Wasmtime) | Regex Replace | 100 MB / second |
+| Rust (FFI) | VRL Replace | 272 MB / second |
+| Rust (WASM Wazero) | VRL Replace | 34 MB / second |
+| Rust (WASM Wasmtime) | VRL Replace | 64 MB / second |
 
-### (Old Results) - without VRL optimizations
+### (Old Results m1 Max) - without VRL optimizations
 
 | Execution Environment | Scenario | Result |
 | --------------------- | -------- | ------ |
