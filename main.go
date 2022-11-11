@@ -110,7 +110,7 @@ func main() {
 	useWasmtimeRegex := flag.Bool("regexwasmtime", false, "use raw regex running inside wasmtime")
 	useBloblang := flag.Bool("bloblang", false, "use bloblang")
 
-	regex := `\\w{4}\\s\\w{3}\\s\\w`
+	regex := `\b\w{4}\b`
 
 	// misc
 	stdout := flag.Bool("stdout", false, "Output to stdout")
@@ -177,7 +177,6 @@ func main() {
 		} else if *useVrl {
 			text = strings.TrimSpace(text)
 			text = fmt.Sprintf("{\"message\":\"%s\"}", text)
-			fmt.Println(program)
 			output(processStringVrl(text, program))
 		} else if *useBloblang {
 			output(processStringBloblang(exe, text))

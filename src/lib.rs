@@ -17,7 +17,7 @@ use std::mem::MaybeUninit;
 use std::slice;
 
 lazy_static! {
-    static ref RE: Regex = Regex::new(r"\\w{4}\\s\\w{3}\\s\\w").unwrap();
+    static ref RE: Regex = Regex::new(r"\b\w{4}\b").unwrap();
     static ref VRL_PROGRAM: Program = compile_vrl_static();
 }
 
