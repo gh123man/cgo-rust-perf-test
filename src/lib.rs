@@ -2,6 +2,7 @@ extern crate alloc;
 use ::value::{Secrets, Value};
 use lazy_static::lazy_static;
 use regex::Regex;
+use std::borrow::Borrow;
 use std::cell::RefCell;
 use std::collections::BTreeMap;
 use std::ffi::CStr;
@@ -16,13 +17,13 @@ use std::mem::MaybeUninit;
 use std::slice;
 
 lazy_static! {
-    static ref RE: Regex = Regex::new(r"\b\w{4}\b").unwrap();
-    static ref VRL_PROGRAM: Program = compile_vrl();
+    static ref RE: Regex = Regex::new(r"\\w{4}\\s\\w{3}\\s\\w").unwrap();
+    static ref VRL_PROGRAM: Program = compile_vrl_static();
 }
 
 thread_local! {static RUNTIME: RefCell<Runtime> = RefCell::new(Runtime::new(state::Runtime::default()));}
 
-pub fn compile_vrl() -> Program {
+pub fn compile_vrl_static() -> Program {
     // let program = r#"."#;
     let program = r#". = replace(string!(.), r'\b\w{4}\b', "rust", 1)"#;
     let functions = vrl_stdlib::all();
@@ -35,7 +36,23 @@ pub fn compile_vrl() -> Program {
     }
 }
 
-pub fn run_vrl(s: &str) -> String {
+#[no_mangle]
+pub extern "C" fn compile_vrl(input: *const libc::c_char) -> *mut Program {
+    let program_string = unsafe { CStr::from_ptr(input) }.to_str().unwrap();
+    let functions = vrl_stdlib::all();
+    match vrl::compile(&program_string, &functions) {
+        Ok(res) => {
+            return Box::into_raw(Box::new(res.program));
+        },
+        Err(err) => {
+            let f = Formatter::new(&"", err);
+            panic!("{:#}", f)
+        }
+    }
+}
+
+
+pub fn run_vrl_static(s: &str) -> String {
     let mut value: Value = Value::from(s);
     let mut metadata = Value::Object(BTreeMap::new());
     let mut secrets = Secrets::new();
@@ -50,6 +67,26 @@ pub fn run_vrl(s: &str) -> String {
         return r
             .borrow_mut()
             .resolve(&mut target, &VRL_PROGRAM, &TimeZone::Local);
+    });
+
+    return output.unwrap().to_string();
+}
+
+pub fn run_vrl(s: &str, program: &Program) -> String {
+    let mut value: Value = Value::from(s);
+    let mut metadata = Value::Object(BTreeMap::new());
+    let mut secrets = Secrets::new();
+    let mut target = TargetValueRef {
+        value: &mut value,
+        metadata: &mut metadata,
+        secrets: &mut secrets,
+    };
+
+    let output = RUNTIME.with(|r| {
+        // r.borrow_mut().clear();
+        return r
+            .borrow_mut()
+            .resolve(&mut target, program, &TimeZone::Local);
     });
 
     return output.unwrap().to_string();
@@ -71,9 +108,10 @@ pub extern "C" fn noop(input: *const libc::c_char) -> *const libc::c_char {
 }
 
 #[no_mangle]
-pub extern "C" fn transform_vrl(input: *const libc::c_char) -> *const libc::c_char {
+pub extern "C" fn transform_vrl(input: *const libc::c_char, program: *mut Program) -> *const libc::c_char {
+    let prog =  unsafe { program.as_ref().unwrap() };
     let inpt: &CStr = unsafe { CStr::from_ptr(input) };
-    let output = run_vrl(inpt.to_str().unwrap());
+    let output = run_vrl(inpt.to_str().unwrap(), prog);
     let c_str = CString::new(output.as_bytes()).expect("CString::new failed");
     return c_str.into_raw();
 }
@@ -103,7 +141,7 @@ pub unsafe extern "C" fn _regex_wasm(ptr: u32, len: u32) -> u32 {
 pub unsafe extern "C" fn _vrl_wasm_buffered(ptr: u32, len: u32) -> u32 {
     let name = &ptr_to_string(ptr, len);
 
-    let output = run_vrl(name);
+    let output = run_vrl_static(name);
     store_string_at_ptr(&output, ptr);
 
     output.len() as u32
