@@ -4,6 +4,7 @@ import (
 	"context"
 	"fmt"
 	"log"
+	"regexp"
 	"strings"
 )
 
@@ -21,12 +22,14 @@ type Scenario struct {
 	result      string
 }
 
-func generateBenchmarkTable() string {
+func generateBenchmarkTable(regex string) string {
 	wazeroCtx := context.Background()
 	wazeroRunner := NewWazeroRunner(wazeroCtx, compiledWasmBytes)
 	defer wazeroRunner.Close()
 
 	wasmtimeRunner := NewWasmtimeRunner(compiledWasmBytes)
+	compiledRe := regexp.MustCompile(regex)
+	program := compileVrl(`. = replace(string!(.), r'\b\w{4}\b', "rust", 1)`)
 
 	// Step 1, generate the scenarios that we want to run
 	// - processStringRs, processStringGo, useVrl
@@ -38,13 +41,13 @@ func generateBenchmarkTable() string {
 		{"Rust (WASM Wasmtime)", "String Copy", func(s string) string { return wasmtimeRunner.runNoop(s) }, ""},
 
 		// Regex
-		{"Go", "Regex Replace", processStringGo, ""},
+		{"Go", "Regex Replace", func(s string) string { return processStringGo(s, *compiledRe) }, ""},
 		{"Rust (FFI)", "Regex Replace", processStringRs, ""},
 		{"Rust (WASM Wazero)", "Regex Replace", func(s string) string { return wazeroRunner.runRegex(s) }, ""},
 		{"Rust (WASM Wasmtime)", "Regex Replace", func(s string) string { return wasmtimeRunner.runRegex(s) }, ""},
 
 		// VRL
-		{"Rust (FFI)", "VRL Replace", processStringVrl, ""},
+		{"Rust (FFI)", "VRL Replace", func(s string) string { return processStringVrl(s, program) }, ""},
 		{"Rust (WASM Wazero)", "VRL Replace", func(s string) string { return wazeroRunner.runVrl(s) }, ""},
 		{"Rust (WASM Wasmtime)", "VRL Replace", func(s string) string { return wasmtimeRunner.runVrl(s) }, ""},
 	}

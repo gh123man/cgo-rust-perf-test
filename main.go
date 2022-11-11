@@ -110,6 +110,8 @@ func main() {
 	useWasmtimeRegex := flag.Bool("regexwasmtime", false, "use raw regex running inside wasmtime")
 	useBloblang := flag.Bool("bloblang", false, "use bloblang")
 
+	regex := `\b\w{4}\b`
+
 	// misc
 	stdout := flag.Bool("stdout", false, "Output to stdout")
 	useUds := flag.Bool("uds", false, "accept data from UDS")
@@ -118,7 +120,7 @@ func main() {
 	flag.Parse()
 
 	if *benchmarkTable {
-		fmt.Print(generateBenchmarkTable())
+		fmt.Print(generateBenchmarkTable(regex))
 		return
 	}
 
@@ -167,6 +169,7 @@ func main() {
 		}()
 	}
 
+	program := compileVrl(`. = replace(string!(.), r'\b\w{4}\b', "rust", 1)`)
 	for {
 		text, _ := reader.ReadString('\n')
 		if *useRust {
@@ -174,7 +177,7 @@ func main() {
 		} else if *useVrl {
 			text = strings.TrimSpace(text)
 			text = fmt.Sprintf("{\"message\":\"%s\"}", text)
-			output(processStringVrl(text))
+			output(processStringVrl(text, program))
 		} else if *useBloblang {
 			output(processStringBloblang(exe, text))
 		} else if *useRustNoop {
@@ -194,7 +197,8 @@ func main() {
 		} else if *useWasmtimeRegex {
 			output(wasmtimeRunner.runRegex(text))
 		} else {
-			output(processStringGo(text))
+			compiledRe := regexp.MustCompile(regex)
+			output(processStringGo(text, *compiledRe))
 		}
 
 		runtime.Gosched()
@@ -219,18 +223,22 @@ func processStringRs(str string) string {
 	return s
 }
 
-func processStringVrl(str string) string {
+func processStringVrl(str string, program unsafe.Pointer) string {
 	cs := C.CString(str)
-	b := C.transform_vrl(cs)
+	b := C.transform_vrl(cs, program)
 	s := C.GoString(b)
 	defer C.free(unsafe.Pointer(cs))
 	defer C.free(unsafe.Pointer(b))
 	return s
 }
 
-var r = regexp.MustCompile(`\b\w{4}\b`)
+func compileVrl(str string) unsafe.Pointer {
+	cs := C.CString(str)
+	program := unsafe.Pointer(C.compile_vrl(cs))
+	return program
+}
 
-func processStringGo(str string) string {
+func processStringGo(str string, r regexp.Regexp) string {
 	return r.ReplaceAllString(str, "gogo")
 }
 
