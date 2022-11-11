@@ -1,6 +1,9 @@
 #!/usr/bin/env bash
 
 arch=$(uname -m)
+if [[ "$arch" == "arm64" ]]; then
+    arch="aarch64"
+fi
 targets=("--target wasm32-wasi")
 if [[ "$OSTYPE" == "linux-gnu"* ]]; then
     targets+=("--target $arch-unknown-linux-gnu")
