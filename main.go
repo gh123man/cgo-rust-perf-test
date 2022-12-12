@@ -1,7 +1,10 @@
 package main
 
 //#cgo CFLAGS: -I${SRCDIR}/target/release/
-//#cgo LDFLAGS: -L${SRCDIR}/target/aarch64-unknown-linux-gnu/release -L${SRCDIR}/target/x86_64-unknown-linux-gnu/release -L${SRCDIR}/target/aarch64-apple-darwin/release -Wl,-rpath,${SRCDIR}/target/aarch64-unknown-linux-gnu/release -Wl,-rpath,${SRCDIR}/target/x86_64-unknown-linux-gnu/release -Wl,-rpath,${SRCDIR}/target/aarch64-apple-darwin/release -lhelloRust
+//#cgo LDFLAGS: -lhelloRust
+//#cgo darwin,arm64 LDFLAGS: -L${SRCDIR}/target/aarch64-apple-darwin/release -Wl,-rpath,${SRCDIR}/target/aarch64-unknown-linux-gnu/release
+//#cgo linux,arm64 LDFLAGS: -L${SRCDIR}/target/aarch64-unknown-linux-gnu/release -L${SRCDIR}/target/x86_64-unknown-linux-gnu/release
+//#cgo linux,amd64 LDFLAGS: -Wl,-rpath,${SRCDIR}/target/x86_64-unknown-linux-gnu/release -Wl,-rpath,${SRCDIR}/target/aarch64-apple-darwin/release
 //
 //#include <stdio.h>
 //#include <stdlib.h>
