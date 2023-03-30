@@ -6,7 +6,7 @@ require (
 	github.com/benthosdev/benthos/v4 v4.10.0
 	github.com/bytecodealliance/wasmtime-go v1.0.0
 	github.com/dustin/go-humanize v1.0.0
-	github.com/tetratelabs/wazero v1.0.0-pre.4
+	github.com/tetratelabs/wazero v1.0.1
 	go.uber.org/atomic v1.10.0
 )
 

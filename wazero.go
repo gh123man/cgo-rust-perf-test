@@ -17,7 +17,7 @@ func instantiateWazero(ctx context.Context) (wazero.Runtime, api.Module) {
 	wasi_snapshot_preview1.MustInstantiate(ctx, r)
 	// Instantiate a WebAssembly module that exports
 	// "allocate", "deallocate" and "noop_wasm"
-	mod, err := r.InstantiateModuleFromBinary(ctx, compiledWasmBytes)
+	mod, err := r.Instantiate(ctx, compiledWasmBytes)
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -41,7 +41,7 @@ func NewWazeroRunner(ctx context.Context, wasmBytes []byte) *WazeroRunner {
 	r := wazero.NewRuntime(ctx)
 
 	wasi_snapshot_preview1.MustInstantiate(ctx, r)
-	mod, err := r.InstantiateModuleFromBinary(ctx, wasmBytes)
+	mod, err := r.Instantiate(ctx, wasmBytes)
 	if err != nil {
 		log.Panicln(err)
 	}
@@ -65,9 +65,9 @@ func (wr *WazeroRunner) executeStringInStringOut(input string, funcy api.Functio
 		log.Panicf("Input string length %d is bigger than the buffer %d.", len(input), bufSize)
 	}
 
-	if !wr.mod.Memory().Write(wr.ctx, wr.bufPtr, []byte(input)) {
+	if !wr.mod.Memory().Write(wr.bufPtr, []byte(input)) {
 		log.Panicf("Memory.Write(%d, %d) out of range of memory size %d",
-			wr.bufPtr, len(input), wr.mod.Memory().Size(wr.ctx))
+			wr.bufPtr, len(input), wr.mod.Memory().Size())
 	}
 
 	results, err := funcy.Call(wr.ctx, uint64(wr.bufPtr), uint64(len(input)))
@@ -77,10 +77,10 @@ func (wr *WazeroRunner) executeStringInStringOut(input string, funcy api.Functio
 
 	resultSize := results[0]
 
-	resultStringBytes, ok := wr.mod.Memory().Read(wr.ctx, wr.bufPtr, uint32(resultSize))
+	resultStringBytes, ok := wr.mod.Memory().Read(wr.bufPtr, uint32(resultSize))
 	if !ok {
 		log.Panicf("Memory.Read(%d, %d) out of range of memory size %d",
-			wr.bufPtr, resultSize, wr.mod.Memory().Size(wr.ctx))
+			wr.bufPtr, resultSize, wr.mod.Memory().Size())
 	}
 	res := string(resultStringBytes)
 	return res
@@ -124,9 +124,9 @@ func (wr *WazeroRunner) runNoopDynamicAllocation(input string) string {
 	defer deallocate.Call(wr.ctx, inputPtr, inputSize)
 
 	// The pointer is a linear memory offset, which is where we write the input string.
-	if !wr.mod.Memory().Write(wr.ctx, uint32(inputPtr), []byte(input)) {
+	if !wr.mod.Memory().Write(uint32(inputPtr), []byte(input)) {
 		log.Panicf("Memory.Write(%d, %d) out of range of memory size %d",
-			inputPtr, inputSize, wr.mod.Memory().Size(wr.ctx))
+			inputPtr, inputSize, wr.mod.Memory().Size())
 	}
 
 	// Invoke 'noop' passing in the pointer+size of the input string
@@ -141,10 +141,10 @@ func (wr *WazeroRunner) runNoopDynamicAllocation(input string) string {
 	defer deallocate.Call(wr.ctx, uint64(noopResultPtr), uint64(noopResultSize))
 
 	// The pointer is a linear memory offset, which is where we write the input string.
-	resultStringBytes, ok := wr.mod.Memory().Read(wr.ctx, noopResultPtr, noopResultSize)
+	resultStringBytes, ok := wr.mod.Memory().Read(noopResultPtr, noopResultSize)
 	if !ok {
 		log.Panicf("Memory.Read(%d, %d) out of range of memory size %d",
-			noopResultPtr, noopResultSize, wr.mod.Memory().Size(wr.ctx))
+			noopResultPtr, noopResultSize, wr.mod.Memory().Size())
 	}
 	res := string(resultStringBytes)
 	return res
